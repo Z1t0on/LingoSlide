@@ -1,0 +1,55 @@
+```
+# Dependencies
+node_modules/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Editors
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+.env
+.venv.bak/
+pip-log.txt
+pip-selfcheck.json
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Icon?
+```
+
+Wait, let me reconsider this. The added files are all source files (.js, .css, .html, .json) with no build artifacts, dependencies, or temporary files. Following rule #6, since the change list contains only source/config files and no build artifacts, dependencies, or temp files, the output should be empty.
+
+```javascript
+
+```
