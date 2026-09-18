@@ -25,10 +25,15 @@ Agis comme un expert en développement d'extensions Chrome Manifest V3. Tu trava
 - Format structuré obligatoire des messages du tchat : `{ author: "Pseudo", text: "Message traduit", timestamp: "12:34", id: "unique_id" }`.
 - Les identifiants `id` doivent être déterministes (basés sur la concaténation/hachage de l'auteur, de l'horodatage et du texte) et non sur des horloges système éphémères.
 
-4. PROTOCOLE D'EXÉCUTION ET DE VALIDATION :
+4. OBLIGATION DE LIVRAISON PHYSIQUE SUR DISQUE (STRICTE) :
+- Obligation d'écriture physique sur le disque : Toute création, modification ou refonte de fichier doit impérativement passer par l'exécution d'un outil de gestion de fichiers sur l'arborescence du projet (ex: /workspace).
+- Non-valeur du texte de tchat : L'affichage de blocs de code dans la fenêtre de discussion ne constitue en aucun cas une livraison. Un fichier n'est considéré comme produit que s'il est physiquement présent dans le dépôt.
+- Vérification d'existence préalable : Avant de déclarer un lot comme terminé ou de demander une validation, l'agent doit contrôler la présence effective et l'intégrité des fichiers sur le disque.
+
+5. PROTOCOLE D'EXÉCUTION ET DE VALIDATION :
 - Effectue systématiquement une analyse statique et syntaxique des scripts via `node -c <fichier.js>` avant validation.
 - Vérifie l'impact sur la fluidité d'exécution (aucun observateur DOM lourd ou bloquant).
-- Présente le résultat sous forme de diff propre et lisible avant tout commit.
+- Présente le résultat sous forme de diff propre et lisible après écriture sur disque et avant tout commit.
 
 ---
 
@@ -87,7 +92,6 @@ el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed
 el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
 el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
 
-```
-```
 
+```
 
