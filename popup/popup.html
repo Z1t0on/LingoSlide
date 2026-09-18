@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LingoSlide - Configuration</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⚙️ Configuration</h1>
+      <p class="subtitle">Paramètres de traduction LingoSlide</p>
+    </header>
+
+    <!-- BLOC ONBOARDING (Affiché si clé API manquante) -->
+    <div id="onboarding-block" class="card warning hidden">
+      <h2>👋 Bienvenue sur LingoSlide !</h2>
+      <p>Pour commencer à traduire vos conversations gaming, vous avez besoin d'une <strong>clé API Google Gemini</strong>.</p>
+      <ol>
+        <li>Rendez-vous sur <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</li>
+        <li>Connectez-vous avec votre compte Google.</li>
+        <li>Cliquez sur "Create API Key" (Créer une clé API).</li>
+        <li>Copiez la clé générée et collez-la ci-dessous.</li>
+      </ol>
+    </div>
+
+    <!-- FORMULAIRE DE CONFIGURATION -->
+    <form id="config-form" class="card">
+      
+      <!-- Clé API -->
+      <div class="form-group">
+        <label for="apiKey">🔑 Clé API Google Gemini</label>
+        <div class="input-wrapper">
+          <input type="password" id="apiKey" name="apiKey" placeholder="Collez votre clé API ici..." required>
+          <button type="button" id="toggleApiKey" class="btn-icon" title="Afficher/Masquer la clé">👁️</button>
+        </div>
+        <small class="help-text">Votre clé est stockée localement et n'est jamais envoyée à nos serveurs.</small>
+      </div>
+
+      <!-- Langue Cible -->
+      <div class="form-group">
+        <label for="targetLang">🌍 Langue de traduction sortante</label>
+        <select id="targetLang" name="targetLang">
+          <option value="fr">Français</option>
+          <option value="en">Anglais (English)</option>
+          <option value="es">Espagnol (Español)</option>
+          <option value="de">Allemand (Deutsch)</option>
+          <option value="it">Italien (Italiano)</option>
+          <option value="pt">Portugais (Português)</option>
+          <option value="ja">Japonais (日本語)</option>
+          <option value="ko">Coréen (한국어)</option>
+          <option value="zh">Chinois (中文)</option>
+        </select>
+      </div>
+
+      <!-- Modèle Préférentiel -->
+      <div class="form-group">
+        <label for="selectedModel">🤖 Modèle IA préférentiel</label>
+        <select id="selectedModel" name="selectedModel">
+          <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Rapide & Éco)</option>
+          <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Équilibré)</option>
+          <option value="gemma-4-26b">Gemma 4 26B (Précis & Puissant)</option>
+        </select>
+        <small class="help-text">Le modèle indiqué sera utilisé en priorité. En cas d'erreur, un fallback automatique sera tenté.</small>
+      </div>
+
+      <!-- Option AutoSend -->
+      <div class="form-group toggle-group">
+        <label for="autoSend">🚀 Envoi automatique après traduction</label>
+        <div class="toggle-switch">
+          <input type="checkbox" id="autoSend" name="autoSend">
+          <span class="slider"></span>
+        </div>
+        <small class="help-text">Si activé, le message traduit sera envoyé automatiquement dans le tchat après traduction.</small>
+      </div>
+
+      <!-- Bouton Sauvegarde -->
+      <div class="form-actions">
+        <button type="submit" id="save-btn" class="btn-primary">💾 Enregistrer les paramètres</button>
+      </div>
+
+      <!-- Message de confirmation -->
+      <div id="save-message" class="message success hidden">✅ Paramètres enregistrés avec succès !</div>
+      <div id="error-message" class="message error hidden">❌ Une erreur est survenue.</div>
+    </form>
+
+    <!-- PIED DE PAGE : TRANSPARENCE -->
+    <footer>
+      <p>Mentions légales :</p>
+      <p class="disclaimer">Messages traités via l'API Google Gemini.<br>Vos données sont soumises à la politique de confidentialité de Google.</p>
+      <p class="version">LingoSlide v1.0.0</p>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

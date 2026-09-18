@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LingoSlide - Tchat</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="sidepanel-container">
+    
+    <!-- PARTIE HAUTE : FIL MIROIR (SCROLLABLE) -->
+    <div id="chat-feed" class="chat-feed">
+      <!-- Message de bienvenue par défaut -->
+      <div class="message system hidden" id="welcome-msg">
+        <div class="message-content">
+          <p>Bienvenue dans LingoSlide ! 🎮</p>
+          <p>Les messages traduits apparaîtront ici en temps réel.</p>
+        </div>
+      </div>
+      
+      <!-- Les messages dynamiques seront injectés ici par JS -->
+    </div>
+
+    <!-- PARTIE BASSE : COMMAND CENTER (ANCRÉ) -->
+    <div class="command-center">
+      
+      <!-- Zone de saisie / Brouillon -->
+      <textarea 
+        id="draft-input" 
+        placeholder="Saisissez votre message ici..." 
+        rows="3"
+      ></textarea>
+
+      <!-- Boutons d'action -->
+      <div class="action-buttons">
+        <!-- Bouton Dictée (Réservé pour future implémentation) -->
+        <button id="dictate-btn" class="btn-secondary btn-icon-only" title="Dictée vocale (Bientôt)">
+          🎤
+        </button>
+
+        <!-- Bouton Copier (Fallback) -->
+        <button id="copy-btn" class="btn-secondary" title="Copier la traduction">
+          📋 Copier
+        </button>
+
+        <!-- Bouton Principal : Traduire & Injecter -->
+        <button id="translate-inject-btn" class="btn-primary">
+          🌐 Traduire & Injecter
+        </button>
+      </div>
+
+      <!-- Zone de statut / Erreur -->
+      <div id="status-bar" class="status-bar hidden">
+        <span id="status-text"></span>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
