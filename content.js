@@ -1,321 +1,462 @@
 /**
  * LingoSlide - Content Script (Manifest V3)
- * Rôle : Capture du tchat entrant (MutationObserver) et injection du texte sortant (React).
- * Contraintes : 100% Web Natif, Zero Framework, Exclusion docs.google.com
+ * Rôle : Observation du tchat entrant (traduction native) et Injection sortante (React/Virtual DOM).
+ * Contraintes : 100% Natif, Zero Framework, Debounce 300ms, Micro-pause 50ms, Fallback DOM en cascade.
+ * Version : 1.0.0 - Recadrage Architectural Strict
  */
 
-(function() {
-  'use strict';
+// --- GARDE-FOU EXCLUSION STRICTE ---
+if (window.location.hostname.includes('docs.google.com')) {
+  console.log('[LingoSlide] Exclusion Google Docs. Arrêt immédiat du script.');
+  // Interruption totale de l'exécution
+  (function() { return; })();
+}
 
-  // ==========================================
-  // 1. GARDE-FOU & EXCLUSIONS STRICTES
-  // ==========================================
+console.log('[LingoSlide] Content Script initialisé sur :', window.location.hostname);
 
-  // Interruption immédiate si Google Docs
-  if (window.location.hostname.includes('docs.google.com')) {
-    console.log('[LingoSlide] Exclusion : Google Docs détecté. Aucun script injecté.');
-    return;
-  }
-
-  console.log('[LingoSlide] Content Script démarré sur :', window.location.hostname);
-
-  // ==========================================
-  // 2. CONFIGURATION & ÉTAT LOCAL
-  // ==========================================
-
-  // Cache des messages déjà traités pour éviter les doublons (Max 100 entrées)
-  // Structure : Set contenant des empreintes textuelles (string)
-  const messageCache = new Set();
-  const MAX_CACHE_SIZE = 100;
-
-  // Sélecteurs cibles pour Xbox Cloud Gaming et autres plateformes
-  // Note: On ne stocke PAS de références DOM globales (anti-obsolète)
-  const CHAT_CONTAINERS_SELECTORS = [
-    '#root', // Xbox Cloud Gaming
+// --- CONFIGURATION & ÉTAT LOCAL ---
+const CONFIG = {
+  DEBOUNCE_DELAY: 300, // ms pour stabilisation traduction native Chromium
+  REACT_SYNC_PAUSE: 50, // ms pour synchronisation Virtual DOM React
+  CACHE_LIMIT: 100,
+  // Sélecteurs des conteneurs de tchat prioritaires (Xbox Cloud Gaming, Discord, etc.)
+  TARGET_CONTAINERS: [
+    '#root',
+    '#gamepass-dialog-root',
     '[class*="chat"]',
     '[class*="message-list"]',
     'main'
-  ];
+  ]
+};
 
-  // ==========================================
-  // 3. FLUX ENTRANT : CAPTURE DU TCHAT (MutationObserver)
-  // ==========================================
+let state = {
+  autoSend: false,
+  targetLang: 'fr',
+  messageCache: new Map(), // Structure { fingerprint -> { author, text, timestamp } }
+  observer: null,
+  debounceTimer: null,
+  mainChatContainer: null // Référence au conteneur principal pour recherche restreinte
+};
 
-  /**
-   * Calcule une empreinte déterministe unique basée uniquement sur l'auteur et le texte.
-   * Exclut toute valeur temporelle ou aléatoire.
-   * @param {string} author - Le pseudo de l'auteur.
-   * @param {string} text - Le contenu du message.
-   * @returns {string} - L'empreinte unique.
-   */
-  function generateFingerprint(author, text) {
-    const normalizedAuthor = (author || '').trim().toLowerCase();
-    const normalizedText = (text || '').trim().toLowerCase();
-    return `msg:${normalizedAuthor}:${normalizedText}`;
+// ==========================================
+// UTILITAIRES
+// ==========================================
+
+/**
+ * Génère un identifiant déterministe (fingerprint) basé UNIQUEMENT sur auteur + texte nettoyé.
+ * Exclut tout timestamp, ID DOM ou valeur aléatoire pour garantir la stabilité.
+ * Deux captures identiques produisent strictement le même ID.
+ */
+function generateMessageId(author, text) {
+  const cleanText = text.trim().toLowerCase().replace(/\s+/g, ' ');
+  const cleanAuthor = (author || 'unknown').trim().toLowerCase();
+  const rawId = `${cleanAuthor}::${cleanText}`;
+  
+  // Hash simple pour éviter les IDs trop longs dans le cache
+  let hash = 0;
+  for (let i = 0; i < rawId.length; i++) {
+    const char = rawId.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Conversion en entier 32 bits
   }
+  return `msg_${Math.abs(hash).toString(36)}`;
+}
 
-  /**
-   * Purge le cache en supprimant les éléments les plus anciens si la limite est atteinte.
-   * Utilise les itérateurs natifs du Set.
-   */
-  function purgeCache() {
-    if (messageCache.size <= MAX_CACHE_SIZE) return;
+/**
+ * Purge le cache lorsque la limite est dépassée.
+ * Utilise les itérateurs natifs du Map pour supprimer les entrées les plus anciennes.
+ */
+function pruneCache() {
+  if (state.messageCache.size <= CONFIG.CACHE_LIMIT) return;
+  
+  const iterator = state.messageCache.keys();
+  // Supprime les 10 premières entrées (les plus vieilles)
+  const toRemoveCount = state.messageCache.size - CONFIG.CACHE_LIMIT;
+  for (let i = 0; i < toRemoveCount; i++) {
+    const result = iterator.next();
+    if (!result.done) {
+      state.messageCache.delete(result.value);
+    }
+  }
+}
 
-    const iterator = messageCache.values();
-    const toRemove = [];
-    
-    // On récupère les X premières entrées pour les supprimer (les plus anciennes)
-    for (let i = 0; i < (messageCache.size - MAX_CACHE_SIZE); i++) {
-      const result = iterator.next();
-      if (!result.done) {
-        toRemove.push(result.value);
+/**
+ * Positionne le curseur de sélection à la fin du contenu éditable.
+ * Critique pour forcer la synchronisation de l'état interne de React.
+ */
+function setCursorToEnd(element) {
+  if (!element.isContentEditable) return;
+  
+  const range = document.createRange();
+  const selection = window.getSelection();
+  
+  range.selectNodeContents(element);
+  range.collapse(false); // false = collapse to end
+  
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+// ==========================================
+// FLUX SORTANT : INJECTION DOM & RÉACTIVITÉ REACT
+// ==========================================
+
+/**
+ * Résout dynamiquement l'élément cible pour l'injection.
+ * Stratégie de fallback en cascade (PRIORITÉ AU CONTENEUR MÉMORISÉ) :
+ * 1. Élément actif (si éditable)
+ * 2. Conteneur principal mémorisé (mainChatContainer) - PRIORITÉ ABSOLUE
+ * 3. Conteneurs de tchat connus (TARGET_CONTAINERS) - seulement si mainChatContainer échoue
+ * 4. Fallback ultime sur document entier
+ */
+function resolveEditableTarget() {
+  let targetElement = document.activeElement;
+  
+  // Vérifie si l'élément actif est éditable
+  const isEditable = (el) => 
+    el && 
+    el !== document.body && 
+    (el.isContentEditable || el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text'));
+  
+  if (isEditable(targetElement)) {
+    return targetElement;
+  }
+  
+  console.log('[LingoSlide] Perte de focus détectée. Recherche de secours...');
+  
+  // A. PRIORITÉ ABSOLUE : Conteneur principal mémorisé (mainChatContainer)
+  if (state.mainChatContainer && document.contains(state.mainChatContainer)) {
+    targetElement = state.mainChatContainer.querySelector('[contenteditable="true"], textarea, input[type="text"]');
+    if (targetElement) {
+      console.log('[LingoSlide] Cible trouvée dans mainChatContainer mémorisé.');
+      return targetElement;
+    }
+  }
+  
+  // B. Conteneurs de tchat connus (TARGET_CONTAINERS) - seulement si A échoue
+  for (const selector of CONFIG.TARGET_CONTAINERS) {
+    const container = document.querySelector(selector);
+    if (container) {
+      targetElement = container.querySelector('[contenteditable="true"], textarea, input[type="text"]');
+      if (targetElement) {
+        state.mainChatContainer = container; // Mise à jour de la référence
+        console.log('[LingoSlide] Cible trouvée via sélecteur connu:', selector);
+        return targetElement;
       }
     }
-
-    toRemove.forEach(key => messageCache.delete(key));
   }
+  
+  // C. FALLBACK ULTIME : Élargir la recherche à TOUT le document
+  // Sélecteurs génériques pour zones éditables uniquement (pas de boutons)
+  targetElement = 
+    document.querySelector('[contenteditable="true"][role="textbox"]') ||
+    document.querySelector('[contenteditable="true"]') ||
+    document.querySelector('textarea[placeholder*="message" i], textarea[placeholder*="envoyer" i]') ||
+    document.querySelector('input[type="text"][placeholder*="message" i], input[type="text"][placeholder*="envoyer" i]') ||
+    document.querySelector('textarea') ||
+    document.querySelector('input[type="text"]');
+  
+  if (targetElement) {
+    console.log('[LingoSlide] Cible trouvée via fallback global document.');
+  }
+  
+  return targetElement || null;
+}
 
-  /**
-   * Extrait le pseudo et le texte d'un nœud de message.
-   * Sépare strictement l'auteur du contenu du message.
-   * @param {HTMLElement} node - Le nœud DOM contenant le message.
-   * @returns {{author: string, text: string}|null} - Les données extraites ou null.
-   */
-  function extractMessageData(node) {
-    // Sélecteurs typiques pour les pseudos (à adapter selon la plateforme cible)
-    const authorSelectors = [
-      '[class*="username"]',
-      '[class*="author"]',
-      '[data-author]',
-      'strong',
-      'b'
-    ];
-
-    let authorElement = null;
-    for (const selector of authorSelectors) {
-      authorElement = node.querySelector(selector);
-      if (authorElement) break;
-    }
-
-    const author = authorElement ? authorElement.textContent.trim() : 'Inconnu';
-
-    // Extraction du texte du message UNIQUEMENT (sans le pseudo)
-    // On clone le nœud pour retirer temporairement l'élément auteur avant de lire le texte
-    const clone = node.cloneNode(true);
-    const cloneAuthor = clone.querySelector(authorSelectors.join(', '));
-    if (cloneAuthor) {
-      cloneAuthor.remove();
-    }
+/**
+ * Injecte un texte traduit dans une zone éditable cible.
+ * Séquence complète : beforeinput -> textContent/value -> input -> change -> pause 50ms -> Enter (si autoSend).
+ */
+async function injectTranslatedText(text, autoSend) {
+  console.log('[LingoSlide] Tentative d\'injection...', text.substring(0, 50) + '...');
+  
+  const targetElement = resolveEditableTarget();
+  
+  if (!targetElement) {
+    console.error('[LingoSlide] Aucune zone de saisie trouvée.');
+    chrome.runtime.sendMessage({ 
+      action: 'notifyError', 
+      payload: 'Zone de saisie introuvable. Cliquez manuellement dans le chat.' 
+    });
+    return Promise.reject(new Error('Zone de saisie introuvable'));
+  }
+  
+  console.log('[LingoSlide] Cible trouvée:', targetElement.tagName, targetElement.className || targetElement.id);
+  
+  // 1. Événement beforeinput (Critique pour certains frameworks React/Preact)
+  const beforeInputEvent = new InputEvent('beforeinput', {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    inputType: 'insertText',
+    data: text
+  });
+  targetElement.dispatchEvent(beforeInputEvent);
+  
+  // 2. Injection textuelle directe
+  if (targetElement.isContentEditable) {
+    targetElement.textContent = text;
+    // 3. Positionnement du curseur à la fin (Force Sync React)
+    setCursorToEnd(targetElement);
+  } else {
+    targetElement.value = text;
+  }
+  
+  // 4. Événements input et change avec propagation complète
+  targetElement.dispatchEvent(new InputEvent('input', { 
+    bubbles: true, 
+    cancelable: true, 
+    composed: true 
+  }));
+  targetElement.dispatchEvent(new Event('change', { 
+    bubbles: true, 
+    cancelable: true, 
+    composed: true 
+  }));
+  
+  // 5. MICRO-PAUSE ASYNCHRONE (50ms) - CRITIQUE POUR REACT
+  // Laisse le temps au Virtual DOM de synchroniser son état interne (state)
+  await new Promise(resolve => setTimeout(resolve, CONFIG.REACT_SYNC_PAUSE));
+  
+  // 6. Auto-Envoi (Si activé dans les paramètres)
+  if (autoSend) {
+    console.log('[LingoSlide] Auto-send activé. Simulation touche Entrée...');
     
-    // Nettoyage du texte : suppression des espaces multiples et sauts de ligne inutiles
-    let text = clone.textContent.trim().replace(/\s+/g, ' ');
-
-    // Filtrage : on ignore les messages vides ou trop courts (bruits)
-    if (!text || text.length < 1) return null;
-
-    return { author, text };
+    const keyDownEvent = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      bubbles: true,
+      cancelable: true
+    });
+    
+    const keyUpEvent = new KeyboardEvent('keyup', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      bubbles: true,
+      cancelable: true
+    });
+    
+    targetElement.dispatchEvent(keyDownEvent);
+    targetElement.dispatchEvent(keyUpEvent);
   }
+  
+  chrome.runtime.sendMessage({ 
+    action: 'injectionSuccess', 
+    payload: 'Texte injecté avec succès.' 
+  });
+  
+  return Promise.resolve({ success: true });
+}
 
-  /**
-   * Callback du MutationObserver : traite les nouveaux nœuds ajoutés.
-   * @param {MutationRecord[]} mutations - La liste des mutations observées.
-   */
-  function handleMutations(mutations) {
-    mutations.forEach(mutation => {
-      // On ne traite que les ajouts d'enfants (childList), pas les modifications de texte (characterData)
-      // pour optimiser la performance lors du streaming.
-      if (mutation.type !== 'childList') return;
+// ==========================================
+// FLUX ENTRANT : OBSERVATION & CAPTURE (MUTATIONOBSERVER)
+// ==========================================
 
-      mutation.addedNodes.forEach(node => {
-        // Ignorer les nœuds non-éléments (commentaires, textes bruts)
-        if (node.nodeType !== Node.ELEMENT_NODE) return;
+/**
+ * Extrait les données d'un nœud de message (auteur + texte).
+ * Sépare strictement le pseudo du contenu du message.
+ */
+function extractMessageData(node) {
+  if (node.nodeType !== Node.ELEMENT_NODE) return null;
+  
+  // Sélecteurs typiques pour les pseudos (adaptables selon plateforme)
+  const authorSelectors = [
+    '[class*="username"]',
+    '[class*="author"]',
+    '[data-author]',
+    'strong',
+    'b'
+  ];
+  
+  let authorElement = null;
+  for (const selector of authorSelectors) {
+    authorElement = node.querySelector(selector);
+    if (authorElement) break;
+  }
+  
+  const author = authorElement 
+    ? (authorElement.textContent || authorElement.getAttribute('data-author') || 'Inconnu').trim() 
+    : 'Inconnu';
+  
+  // Extraction STRICTE du texte du message (sans le pseudo)
+  // Clone le nœud pour retirer temporairement l'élément auteur avant lecture
+  const clone = node.cloneNode(true);
+  const cloneAuthor = clone.querySelector(authorSelectors.join(', '));
+  if (cloneAuthor) {
+    cloneAuthor.remove();
+  }
+  
+  const text = clone.textContent.trim().replace(/\s+/g, ' ');
+  
+  if (!text || text.length < 1) return null;
+  
+  return { author, text };
+}
 
-        const data = extractMessageData(node);
-        if (!data) return;
-
-        const fingerprint = generateFingerprint(data.author, data.text);
-
-        // Vérification de dédoublonnage
-        if (messageCache.has(fingerprint)) {
-          return; // Message déjà traité, on ignore
-        }
-
-        // Ajout au cache et purge si nécessaire
-        messageCache.add(fingerprint);
-        purgeCache();
-
-        // Construction de l'objet message structuré
-        const messageObj = {
-          id: fingerprint, // Utilisation de l'empreinte comme ID unique
-          author: data.author,
-          text: data.text,
-          timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-        };
-
-        console.log('[LingoSlide] Nouveau message capturé:', messageObj);
-
-        // Envoi au Background Script (qui relaye au Side Panel)
+/**
+ * Traite les nouveaux nœuds ajoutés avec temporisation (debounce) pour stabilisation.
+ */
+function processNodes(nodes) {
+  const newMessages = [];
+  
+  nodes.forEach(node => {
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    
+    const data = extractMessageData(node);
+    if (!data) return;
+    
+    const msgId = generateMessageId(data.author, data.text);
+    const timestamp = new Date().toLocaleTimeString('fr-FR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    
+    // Gestion Cache & Mise à jour (dédoublonnage intelligent)
+    if (state.messageCache.has(msgId)) {
+      // Le message existe déjà : mise à jour si le texte a évolué (traduction en cours)
+      const cachedMsg = state.messageCache.get(msgId);
+      if (cachedMsg.text !== data.text) {
+        console.log(`[LingoSlide] Mise à jour du message ${msgId}`);
+        cachedMsg.text = data.text;
+        cachedMsg.timestamp = timestamp;
+        
+        // Notification de mise à jour au Side Panel (pas de nouvelle carte)
         chrome.runtime.sendMessage({
-          action: 'newIncomingMessage',
-          payload: messageObj
-        }).catch(err => {
-          // Silencieux en cas d'erreur (ex: context invalidé)
-          console.warn('[LingoSlide] Échec envoi message:', err);
-        });
+          action: 'updateMessage',
+          payload: cachedMsg
+        }).catch(err => console.warn('[LingoSlide] Échec mise à jour:', err));
+      }
+    } else {
+      // Nouveau message
+      const msgData = { 
+        id: msgId, 
+        author: data.author, 
+        text: data.text, 
+        timestamp 
+      };
+      state.messageCache.set(msgId, msgData);
+      newMessages.push(msgData);
+      
+      pruneCache();
+      console.log('[LingoSlide] Nouveau message capturé:', msgData);
+    }
+  });
+  
+  if (newMessages.length > 0) {
+    chrome.runtime.sendMessage({
+      action: 'newMessages',
+      payload: newMessages
+    }).catch(err => console.warn('[LingoSlide] Échec envoi messages:', err));
+  }
+}
+
+/**
+ * Callback du MutationObserver avec Debounce de 300ms.
+ * Attend la stabilisation de la traduction native Chromium avant extraction.
+ */
+const handleMutations = (mutationsList) => {
+  if (state.debounceTimer) clearTimeout(state.debounceTimer);
+  
+  state.debounceTimer = setTimeout(() => {
+    const relevantNodes = [];
+    
+    mutationsList.forEach(mutation => {
+      // Surveillance stricte : uniquement childList (ajouts d'enfants)
+      // characterData: false pour éviter la surcharge lors du streaming
+      if (mutation.type === 'childList') {
+        mutation.addedNodes.forEach(node => relevantNodes.push(node));
+      }
+    });
+    
+    if (relevantNodes.length > 0) {
+      processNodes(relevantNodes);
+    }
+  }, CONFIG.DEBOUNCE_DELAY);
+};
+
+/**
+ * Initialise le MutationObserver sur les conteneurs de tchat.
+ */
+function initObserver() {
+  if (state.observer) state.observer.disconnect();
+  
+  state.observer = new MutationObserver(handleMutations);
+  
+  // Ciblage prioritaire des conteneurs connus
+  const targets = CONFIG.TARGET_CONTAINERS
+    .map(sel => document.querySelector(sel))
+    .filter(el => el);
+  
+  if (targets.length > 0) {
+    targets.forEach(target => {
+      state.mainChatContainer = target; // Stocke la référence du premier conteneur trouvé
+      state.observer.observe(target, { 
+        childList: true, 
+        subtree: true,
+        characterData: false // Optimisation performance
       });
     });
-  }
-
-  /**
-   * Initialise le MutationObserver sur le conteneur de tchat.
-   */
-  function initChatObserver() {
-    // Recherche du conteneur principal (essai successif des sélecteurs)
-    let chatContainer = null;
-    for (const selector of CHAT_CONTAINERS_SELECTORS) {
-      chatContainer = document.querySelector(selector);
-      if (chatContainer) break;
-    }
-
-    if (!chatContainer) {
-      console.warn('[LingoSlide] Conteneur de tchat non trouvé. Réessai dans 2s...');
-      setTimeout(initChatObserver, 2000);
-      return;
-    }
-
-    console.log('[LingoSlide] Observation du conteneur:', chatContainer.id || chatContainer.className);
-
-    const observer = new MutationObserver(handleMutations);
-    
-    // Configuration stricte : uniquement les ajouts d'enfants directs et sous-arbres
-    // characterData: false pour éviter la surcharge lors des mises à jour de texte en temps réel
-    observer.observe(chatContainer, {
-      childList: true,
+    console.log('[LingoSlide] Observateur actif sur les conteneurs de tchat.');
+  } else {
+    // Fallback : observation du body si aucun conteneur connu n'est trouvé
+    state.observer.observe(document.body, { 
+      childList: true, 
       subtree: true,
       characterData: false 
     });
+    console.log('[LingoSlide] Observateur actif sur document.body (fallback global).');
   }
+}
 
-  // Démarrage de l'observateur après chargement du DOM
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initChatObserver);
-  } else {
-    initChatObserver();
+// ==========================================
+// INITIALISATION & ÉCOUTEURS
+// ==========================================
+
+// Chargement des paramètres au démarrage
+chrome.storage.local.get(['autoSend', 'targetLang'], (result) => {
+  state.autoSend = result.autoSend || false;
+  state.targetLang = result.targetLang || 'fr';
+  console.log('[LingoSlide] Paramètres chargés:', state);
+});
+
+// Démarrage de l'observateur après chargement du DOM
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initObserver);
+} else {
+  initObserver();
+}
+
+// Écoute des messages du Side Panel / Background
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'injectText') {
+    injectTranslatedText(request.payload.text, request.payload.autoSend)
+      .then(() => sendResponse({ success: true }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true; // Réponse asynchrone
   }
-
-  // ==========================================
-  // 4. FLUX SORTANT : INJECTION & SYNCHRONISATION REACT
-  // ==========================================
-
-  /**
-   * Résout dynamiquement l'élément cible pour l'injection du texte.
-   * Gère la perte de focus (clic dans le Side Panel) via des sélecteurs de secours.
-   * @returns {HTMLElement|null} - L'élément éditable cible.
-   */
-  function resolveEditableTarget() {
-    // 1. Priorité à l'élément actuellement actif (focus)
-    const active = document.activeElement;
-    
-    // Vérification que l'élément actif est bien éditable
-    if (active && active !== document.body) {
-      const isEditable = 
-        active.isContentEditable || 
-        active.tagName === 'TEXTAREA' || 
-        (active.tagName === 'INPUT' && active.type === 'text');
-      
-      if (isEditable) {
-        return active;
-      }
-    }
-
-    // 2. Fallback : Sélecteurs de secours si le focus est perdu (sur body)
-    const fallbackSelectors = [
-      '[contenteditable="true"][role="textbox"]',
-      '[contenteditable="true"]',
-      'textarea[placeholder*="message" i]',
-      'input[type="text"][placeholder*="message" i]',
-      'textarea',
-      'input[type="text"]'
-    ];
-
-    for (const selector of fallbackSelectors) {
-      const el = document.querySelector(selector);
-      if (el) return el;
-    }
-
-    return null;
+  
+  if (request.action === 'settingsUpdated') {
+    if (request.payload.autoSend !== undefined) state.autoSend = request.payload.autoSend;
+    if (request.payload.targetLang !== undefined) state.targetLang = request.payload.targetLang;
+    sendResponse({ success: true });
   }
-
-  /**
-   * Injecte un texte traduit dans une zone éditable et gère l'envoi auto.
-   * Respecte la séquence React : Input -> Change -> Pause 50ms -> Enter.
-   * @param {string} translatedText - Le texte traduit à injecter.
-   * @param {boolean} autoSend - Si vrai, déclenche l'envoi automatique.
-   */
-  async function injectTranslatedText(translatedText, autoSend) {
-    const target = resolveEditableTarget();
-
-    if (!target) {
-      console.error('[LingoSlide] Aucune zone éditable trouvée pour injection.');
-      chrome.runtime.sendMessage({ action: 'injectionError', payload: 'Zone de saisie introuvable.' });
-      return;
-    }
-
-    console.log('[LingoSlide] Injection du texte dans:', target.tagName, target.className);
-
-    // 1. Injection du texte (textContent pour contenteditable, value pour input/textarea)
-    if (target.isContentEditable) {
-      target.textContent = translatedText;
-    } else {
-      target.value = translatedText;
-    }
-
-    // 2. Émission des événements synthétiques pour notifier React/Frameworks
-    const eventOptions = { bubbles: true, cancelable: true, composed: true };
-    
-    target.dispatchEvent(new Event('input', eventOptions));
-    target.dispatchEvent(new Event('change', eventOptions));
-
-    // 3. MICRO-PAUSE ASYNCHRONE DE 50ms (CRITIQUE POUR REACT)
-    // Laisse le temps au Virtual DOM de synchroniser son état interne (state)
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    // 4. Envoi automatique si activé
-    if (autoSend) {
-      console.log('[LingoSlide] AutoSend activé : simulation de la touche Entrée.');
-      
-      const keyOptions = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
-      
-      target.dispatchEvent(new KeyboardEvent('keydown', keyOptions));
-      target.dispatchEvent(new KeyboardEvent('keyup', keyOptions));
-    }
-
-    chrome.runtime.sendMessage({ action: 'injectionSuccess', payload: 'Texte injecté avec succès.' });
+  
+  // Ping de test de connectivité
+  if (request.action === 'ping') {
+    sendResponse({ status: 'ok', url: window.location.href });
+    return true;
   }
+  
+  // Réinitialisation du cache (débogage)
+  if (request.action === 'resetCache') {
+    state.messageCache.clear();
+    sendResponse({ success: true, message: 'Cache réinitialisé.' });
+    return true;
+  }
+});
 
-  // ==========================================
-  // 5. ÉCOUTEUR DE MESSAGES (Depuis Popup / Side Panel)
-  // ==========================================
-
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('[LingoSlide] Message reçu (Content):', request.action);
-
-    // Demande d'injection de texte traduit
-    if (request.action === 'injectText') {
-      const { text, autoSend } = request.payload;
-      injectTranslatedText(text, autoSend).then(() => {
-        sendResponse({ success: true });
-      }).catch(err => {
-        sendResponse({ success: false, error: err.message });
-      });
-      return true; // Réponse asynchrone
-    }
-
-    // Demande de test de connectivité (Heartbeat)
-    if (request.action === 'ping') {
-      sendResponse({ status: 'ok', url: window.location.href });
-      return true;
-    }
-  });
-
-})();
+console.log('[LingoSlide] Content Script prêt.');

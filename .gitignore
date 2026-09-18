@@ -1,55 +1,71 @@
 ```
-# Dependencies
-node_modules/
-
 # Logs and temp files
 *.log
 *.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*
 
 # Editors
 .vscode/
 .idea/
 
-# Environment
-.env
-.env.local
-*.env.*
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+# Dependencies
+node_modules/
 venv/
 .venv/
-.env
-.venv.bak/
-pip-log.txt
-pip-selfcheck.json
-
-# Build artifacts
+__pycache__/
+.mypy_cache/
+.pytest_cache/
 dist/
 build/
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.coverage
-coverage/
+target/
+.gradle/
 
-# OS generated files
+# Compiled files
+*.pyc
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
+
+# System files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-Icon?
-```
 
-Wait, let me reconsider this. The added files are all source files (.js, .css, .html, .json) with no build artifacts, dependencies, or temporary files. Following rule #6, since the change list contains only source/config files and no build artifacts, dependencies, or temp files, the output should be empty.
+# Coverage
+coverage/
+htmlcov/
+.coverage
 
-```javascript
-
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```
