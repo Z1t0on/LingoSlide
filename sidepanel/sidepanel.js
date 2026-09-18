@@ -111,20 +111,37 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Demande la traduction au Background Script.
+   * Demande la traduction au Background Script avec timeout réseau de 10 secondes.
+   * Gère spécifiquement les erreurs HTTP 403 (clé invalide), 429 (quota dépassé) et les timeouts.
    * @param {string} text - Texte à traduire.
-   * @returns {Promise<{success: boolean, text?: string, error?: string}>}
+   * @returns {Promise<{success: boolean, text?: string, error?: string, code?: number}>}
    */
   async function requestTranslation(text) {
     return new Promise((resolve) => {
+      // Timeout de 10 secondes pour éviter le blocage en cas de silence réseau
+      const timeoutId = setTimeout(() => {
+        resolve({ 
+          success: false, 
+          error: "Délai d'attente dépassé (10s). Réessayez.",
+          code: 0 
+        });
+      }, 10000);
+
       chrome.runtime.sendMessage(
-        { 
-          action: 'translateRequest', 
-          payload: { text, targetLang: settings.targetLang } 
+        {
+          action: 'translateRequest',
+          payload: { text, targetLang: settings.targetLang }
         },
         (response) => {
+          // Annuler le timeout dès réception de la réponse
+          clearTimeout(timeoutId);
+          
           if (chrome.runtime.lastError) {
-            resolve({ success: false, error: 'Erreur de communication avec le background.' });
+            resolve({ 
+              success: false, 
+              error: 'Erreur de communication avec le background.',
+              code: 0 
+            });
           } else {
             resolve(response);
           }

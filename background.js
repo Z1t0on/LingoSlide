@@ -1,6 +1,7 @@
 /**
  * LingoSlide - Background Service Worker (Manifest V3)
  * Rôle : Orchestrateur central, Gestionnaire API Gemini, Router de messages.
+ * Fonctionnalités ajoutées : Keep-alive pour offscreen (dictée vocale).
  */
 
 // --- CONFIGURATION & CONSTANTES ---
@@ -13,6 +14,10 @@ const API_MODELS = [
 
 const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+// Variables pour le keep-alive du service worker pendant la dictée
+let keepAliveInterval = null;
+let isOffscreenActive = false;
+
 // --- GESTIONNAIRE D'INSTALLATION (ONBOARDING) ---
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -23,10 +28,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     if (!result.apiKey || result.apiKey.trim() === '') {
       console.warn('[LingoSlide] Clé API manquante. Ouverture de l\'onboarding.');
       
-      // Option A : Ouvrir la popup (si possible selon le contexte navigateur)
-      // Note: action.openPopup() nécessite une interaction utilisateur dans certains contextes,
-      // donc on privilégie l'ouverture d'un onglet de configuration ou on s'assure que l'utilisateur clique sur l'icône.
-      // Ici, on ouvre simplement l'URL de la popup dans un nouvel onglet pour forcer la config.
+      // Ouverture de la popup dans un nouvel onglet pour forcer la configuration
       chrome.tabs.create({
         url: chrome.runtime.getURL('popup/popup.html?onboarding=true'),
         active: true
@@ -98,14 +100,13 @@ async function translateWithFallback(text, targetLang, apiKey) {
       
       if (response.status === 403 || response.status === 400) {
         // 403: Clé invalide ou modèle non autorisé pour cette clé.
-        // 400: Nom de modèle incorrect (ne devrait pas arriver avec nos constantes).
-        // Si c'est une erreur de clé (403 globale), on arrête tout.
+        // 400: Nom de modèle incorrect.
         const errorData = await response.json().catch(() => ({}));
         if (errorData.error?.message?.includes('API_KEY_INVALID')) {
            return { success: false, error: 'Clé API invalide. Veuillez la vérifier dans les paramètres.', code: 403 };
         }
         lastError = { code: response.status, message: `Erreur ${response.status} sur ${model}.` };
-        continue; // On tente le prochain modèle au cas où celui-ci serait indisponible pour ce compte
+        continue; // On tente le prochain modèle
       }
 
       // Erreurs serveur (500+) ou autres
@@ -126,6 +127,40 @@ async function translateWithFallback(text, targetLang, apiKey) {
     error: lastError?.message || 'Échec de traduction sur tous les modèles disponibles.',
     code: lastError?.code
   };
+}
+
+// --- MÉCANISME DE KEEP-ALIVE (OFFSCREEN) ---
+
+/**
+ * Démarre le pulse de keep-alive pour maintenir le service worker éveillé.
+ * Envoie un message ping toutes les 20 secondes à la page offscreen.
+ */
+function startKeepAlive() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
+  
+  console.log('[LingoSlide] Keep-alive démarré (pulse 20s).');
+  
+  keepAliveInterval = setInterval(() => {
+    if (isOffscreenActive) {
+      // Envoie un ping à la page offscreen pour maintenir la connexion
+      chrome.runtime.sendMessage({ action: 'keepAlivePing' }).catch(() => {
+        // Ignorer les erreurs (page offscreen peut être fermée)
+      });
+    }
+  }, 20000); // 20 secondes
+}
+
+/**
+ * Arrête le pulse de keep-alive.
+ */
+function stopKeepAlive() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    keepAliveInterval = null;
+    console.log('[LingoSlide] Keep-alive arrêté.');
+  }
 }
 
 // --- ROUTEUR DE MESSAGERIE (chrome.runtime.onMessage) ---
@@ -187,6 +222,35 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     return true;
   }
+
+  // 5. Activation du mode offscreen (dictée vocale)
+  if (request.action === 'offscreenActivated') {
+    isOffscreenActive = true;
+    startKeepAlive();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // 6. Désactivation du mode offscreen
+  if (request.action === 'offscreenDeactivated') {
+    isOffscreenActive = false;
+    stopKeepAlive();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // 7. Réponse au ping de keep-alive (depuis offscreen)
+  if (request.action === 'keepAliveAck') {
+    // Acquitter le ping reçu de la page offscreen
+    sendResponse({ status: 'ok' });
+    return true;
+  }
+});
+
+// Nettoyage à l'arrêt du service worker
+self.addEventListener('unload', () => {
+  stopKeepAlive();
+  console.log('[LingoSlide] Service Worker arrêté.');
 });
 
 console.log('[LingoSlide] Service Worker démarré.');
