@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="auto">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LingoSlide — Side Panel</title>
+    <link rel="icon" type="image/png" href="../assets/icon-48.png" />
+    <link rel="stylesheet" href="./sidepanel.css" />
+  </head>
+  <body>
+    <div class="sp-shell">
+      <header class="sp-header">
+        <div class="sp-brand">
+          <span class="sp-title">LingoSlide</span>
+          <span class="sp-sep" aria-hidden="true">·</span>
+          <span id="lang-pair-label" class="sp-pair">FR ⇄ EN</span>
+        </div>
+        <div class="sp-header-actions">
+          <button
+            id="theme-toggle-btn"
+            type="button"
+            class="sp-icon-btn"
+            title="Changer de thème (Auto / Sombre / Clair)"
+            aria-label="Changer de thème"
+          >
+            🌗
+          </button>
+          <button
+            id="open-options-btn"
+            type="button"
+            class="sp-icon-btn"
+            title="Ouvrir les paramètres LingoSlide"
+            aria-label="Ouvrir les paramètres"
+          >
+            ⚙️
+          </button>
+        </div>
+      </header>
+
+      <main id="chat-feed" class="sp-feed" aria-live="polite" aria-label="Fil miroir traduit">
+        <div class="sp-empty" id="feed-empty-state">
+          Les 5 derniers messages de la conversation apparaîtront ici traduits dans votre langue.
+        </div>
+      </main>
+
+      <section class="sp-command-center" aria-label="Centre de commande">
+        <div id="fallback-banner" class="sp-banner hidden" role="status">
+          <span id="fallback-banner-text">Champ hôte introuvable.</span>
+          <div class="sp-header-actions">
+            <button id="fallback-login-btn" type="button" class="sp-btn sp-btn-secondary sp-btn-xs hidden">
+              Ouvrir la connexion
+            </button>
+            <button id="fallback-copy-btn" type="button" class="sp-btn sp-btn-secondary sp-btn-xs">
+              📋 Copier
+            </button>
+          </div>
+        </div>
+
+        <textarea
+          id="draft-input"
+          class="sp-textarea"
+          rows="3"
+          placeholder="Écrire ou dicter votre message… (Ctrl+Entrée pour traduire et injecter)"
+          aria-label="Zone de rédaction"
+        ></textarea>
+
+        <div class="sp-controls-row">
+          <button id="inject-translate-btn" type="button" class="sp-btn sp-btn-primary">
+            🌐 Injecter
+          </button>
+          <button
+            id="inject-raw-btn"
+            type="button"
+            class="sp-btn sp-btn-secondary"
+            title="Injecter le texte brut sans traduction"
+          >
+            📤 Sans traduire
+          </button>
+          <button
+            id="mic-btn"
+            type="button"
+            class="sp-btn sp-btn-secondary sp-mic-btn"
+            aria-pressed="false"
+            title="Dictée vocale (Web Speech API)"
+          >
+            <span class="sp-rec-dot" aria-hidden="true"></span>
+            <span id="mic-btn-label">🎙️ Micro</span>
+          </button>
+          <label class="sp-auto-enter" title="Appuyer automatiquement sur Entrée après 50 ms">
+            <input id="auto-enter-toggle" type="checkbox" />
+            <span>⏎ Auto-Enter</span>
+          </label>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./sidepanel.js"></script>
+  </body>
+</html>

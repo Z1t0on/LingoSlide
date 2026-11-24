@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "LingoSlide",
+  "version": "2.1.0",
+  "description": "Panneau latéral natif de traduction bidirectionnelle en temps réel via l'API WICG Translator du navigateur.",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "activeTab",
+    "tabs",
+    "offscreen",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://gemini.google.com/*",
+    "https://chat.mistral.ai/*"
+  ],
+  "background": {
+    "service_worker": "extension/background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Ouvrir LingoSlide"
+  },
+  "side_panel": {
+    "default_path": "extension/sidepanel/sidepanel.html"
+  },
+  "options_ui": {
+    "page": "extension/options/options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "exclude_matches": ["*://docs.google.com/*"],
+      "js": ["extension/content/content-main.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "extension/content/*.js",
+        "extension/shared/*.js"
+      ],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
+  "icons": {
+    "16": "extension/assets/icon-16.png",
+    "48": "extension/assets/icon-48.png",
+    "128": "extension/assets/icon-128.png"
+  }
+}

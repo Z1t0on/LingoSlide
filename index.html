@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="auto">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LingoSlide V2.1 Native — Banc de test &amp; Extension MV3</title>
+    <meta
+      name="description"
+      content="Extension Chromium MV3 Side Panel First 100% Web Natif avec traduction bidirectionnelle WICG native et banc de test interactif."
+    />
+    <meta property="og:title" content="LingoSlide V2.1 Native" />
+    <meta
+      property="og:description"
+      content="Extension Chromium MV3 Side Panel First 100% Web Natif avec traduction bidirectionnelle WICG native."
+    />
+    <link rel="icon" type="image/png" href="/extension/assets/icon-48.png" />
+    <link rel="stylesheet" href="/workbench/workbench.css" />
+  </head>
+  <body>
+    <div class="wb-shell">
+      <header class="wb-topbar">
+        <a href="/" class="wb-brand">LingoSlide</a>
+        <nav class="wb-nav" aria-label="Salons simulés">
+          <button type="button" class="wb-tab active" data-channel="discord">Discord #general</button>
+          <button type="button" class="wb-tab" data-channel="whatsapp">WhatsApp Équipe</button>
+          <button type="button" class="wb-tab" data-channel="webform">Support Web</button>
+        </nav>
+        <div class="wb-top-actions">
+          <a href="/extension/options/options.html" target="_blank" rel="noopener" class="wb-btn wb-btn-secondary">
+            Paramètres MV3
+          </a>
+        </div>
+      </header>
+
+      <main class="wb-grid">
+        <section class="wb-host-pane" aria-label="Simulateur du site hôte">
+          <div class="wb-pane-head">
+            <div>
+              <h1 id="host-channel-title">Discord — #general</h1>
+              <p class="wb-meta-line">
+                <span id="host-engine-status">Vérification du moteur natif WICG…</span>
+                <span aria-hidden="true">·</span>
+                <span id="host-dom-count">0 nœud DOM</span>
+              </p>
+            </div>
+            <div class="wb-pane-actions">
+              <button id="sim-incoming-btn" type="button" class="wb-btn wb-btn-secondary">
+                + Message entrant
+              </button>
+              <button id="sim-dom-refresh-btn" type="button" class="wb-btn wb-btn-secondary">
+                Rafraîchir DOM
+              </button>
+              <button id="sim-reset-btn" type="button" class="wb-btn wb-btn-secondary">
+                Simuler F5
+              </button>
+            </div>
+          </div>
+
+          <div id="host-feed-wrapper" class="wb-host-feed-wrapper">
+            <ol id="host-chat-messages" data-list-id="chat-messages" class="wb-host-feed"></ol>
+          </div>
+
+          <div class="wb-host-composer">
+            <label for="host-target-input" class="wb-composer-label" id="host-composer-label">
+              Champ cible du site hôte (résolution DOM dynamique)
+            </label>
+            <div id="host-input-slot"></div>
+          </div>
+        </section>
+
+        <aside class="wb-sidepanel-pane" aria-label="Aperçu du Side Panel LingoSlide">
+          <div class="sp-shell wb-sp-frame">
+            <header class="sp-header">
+              <div class="sp-brand">
+                <span class="sp-title">LingoSlide</span>
+                <span class="sp-sep" aria-hidden="true">·</span>
+                <span id="wb-lang-pair" class="sp-pair">FR ⇄ EN</span>
+              </div>
+              <div class="sp-header-actions">
+                <select id="wb-source-lang" class="wb-inline-select" aria-label="Ma langue d'origine"></select>
+                <select id="wb-target-lang" class="wb-inline-select" aria-label="Langue de sortie"></select>
+                <button
+                  id="wb-theme-btn"
+                  type="button"
+                  class="sp-icon-btn"
+                  title="Changer de thème (Auto / Sombre / Clair)"
+                >
+                  🌗
+                </button>
+              </div>
+            </header>
+
+            <div id="wb-chat-feed" class="sp-feed" aria-live="polite"></div>
+
+            <section class="sp-command-center">
+              <div id="wb-fallback-banner" class="sp-banner hidden" role="status">
+                <span id="wb-fallback-text">Injection impossible.</span>
+                <button id="wb-copy-btn" type="button" class="sp-btn sp-btn-secondary sp-btn-xs">
+                  📋 Copier
+                </button>
+              </div>
+
+              <textarea
+                id="wb-draft-input"
+                class="sp-textarea"
+                rows="3"
+                placeholder="Écrire votre message en français… (Ctrl+Entrée pour traduire et injecter)"
+              ></textarea>
+
+              <div class="sp-controls-row">
+                <button id="wb-inject-btn" type="button" class="sp-btn sp-btn-primary">
+                  🌐 Injecter
+                </button>
+                <button id="wb-inject-raw-btn" type="button" class="sp-btn sp-btn-secondary">
+                  📤 Sans traduire
+                </button>
+                <button id="wb-mic-btn" type="button" class="sp-btn sp-btn-secondary sp-mic-btn">
+                  <span class="sp-rec-dot" aria-hidden="true"></span>
+                  <span id="wb-mic-label">🎙️ Micro</span>
+                </button>
+                <label class="sp-auto-enter">
+                  <input id="wb-auto-enter" type="checkbox" />
+                  <span>⏎ Auto-Enter</span>
+                </label>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script type="module" src="/workbench/workbench.js"></script>
+  </body>
+</html>

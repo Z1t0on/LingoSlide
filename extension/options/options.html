@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="auto">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LingoSlide — Paramètres & Diagnostic</title>
+    <link rel="icon" type="image/png" href="../assets/icon-48.png" />
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <div class="opt-page">
+      <header class="opt-header">
+        <div>
+          <h1>Paramètres LingoSlide</h1>
+          <p class="opt-subtitle">
+            Traduction bidirectionnelle 100 % locale via le moteur natif Chromium (WICG Translator).
+          </p>
+        </div>
+        <span id="save-status" class="opt-save-status" aria-live="polite"></span>
+      </header>
+
+      <section class="opt-card">
+        <h2>Langues de traduction (explicites)</h2>
+        <div class="opt-grid">
+          <label class="opt-field">
+            <span>Ma langue d'origine (rédaction & lecture miroir)</span>
+            <select id="source-lang-select"></select>
+          </label>
+          <label class="opt-field">
+            <span>Langue de sortie (correspondant / salon)</span>
+            <select id="target-lang-select"></select>
+          </label>
+        </div>
+
+        <div class="opt-diagnostic" id="wicg-diagnostic">
+          <div class="opt-diag-row">
+            <span>Envoi (<strong id="diag-out-pair">FR → EN</strong>)</span>
+            <span id="diag-out-status" class="opt-diag-value">Vérification…</span>
+          </div>
+          <div class="opt-diag-row">
+            <span>Fil Miroir (<strong id="diag-in-pair">EN → FR</strong>)</span>
+            <span id="diag-in-status" class="opt-diag-value">Vérification…</span>
+          </div>
+          <div class="opt-diag-actions">
+            <button id="recheck-wicg-btn" type="button" class="opt-btn opt-btn-secondary">
+              Vérifier le moteur natif
+            </button>
+            <button id="warmup-wicg-btn" type="button" class="opt-btn opt-btn-primary">
+              Précharger les paires locales
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="opt-card">
+        <h2>Comportement & Apparence</h2>
+        <div class="opt-grid">
+          <label class="opt-field">
+            <span>Thème du Side Panel</span>
+            <select id="theme-select">
+              <option value="auto">Automatique (Système)</option>
+              <option value="dark">Sombre</option>
+              <option value="light">Clair</option>
+            </select>
+          </label>
+          <label class="opt-checkbox-field">
+            <input id="auto-enter-checkbox" type="checkbox" />
+            <span>Auto-Enter par défaut (envoie Entrée 50 ms après injection)</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="opt-card">
+        <h2>Dictée vocale &amp; Relais Session Web (STT)</h2>
+        <div class="opt-grid">
+          <label class="opt-field">
+            <span>Fournisseur relais STT (session web active)</span>
+            <select id="stt-provider-select"></select>
+          </label>
+          <label class="opt-field">
+            <span>Locale de reconnaissance vocale (STT)</span>
+            <select id="stt-locale-select"></select>
+          </label>
+          <label class="opt-field">
+            <span>Périphérique d'entrée audio (audioinput)</span>
+            <select id="mic-device-select">
+              <option value="">Périphérique système par défaut</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="opt-audio-tools">
+          <button id="test-relay-btn" type="button" class="opt-btn opt-btn-secondary">
+            Tester la session relais
+          </button>
+          <button id="open-relay-login-btn" type="button" class="opt-btn opt-btn-secondary">
+            Ouvrir l'onglet fournisseur
+          </button>
+          <span id="relay-session-status" class="opt-hint"></span>
+        </div>
+
+        <div class="opt-audio-tools">
+          <button id="request-mic-btn" type="button" class="opt-btn opt-btn-secondary">
+            Autoriser et actualiser les micros
+          </button>
+          <button id="test-mic-btn" type="button" class="opt-btn opt-btn-primary">
+            Tester le niveau micro
+          </button>
+          <div class="opt-meter-wrap" aria-label="Niveau audio en direct">
+            <div id="mic-meter-fill" class="opt-meter-fill"></div>
+          </div>
+        </div>
+        <p id="mic-feedback" class="opt-hint"></p>
+      </section>
+    </div>
+
+    <script type="module" src="./options.js"></script>
+  </body>
+</html>
