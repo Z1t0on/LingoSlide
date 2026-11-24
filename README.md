@@ -71,35 +71,21 @@ Le code de l'extension ne nécessite **aucune étape de build** ni dépendance n
 
 ---
 
-## Banc de test local (Workbench)
-
-Un banc de test interactif (simulateur Discord / WhatsApp / Formulaire Web + aperçu du Side Panel) est inclus pour tester l'observation DOM, le dédoublonnage et l'injection en local :
+## Scripts utiles
 
 ```bash
-npm install
-npm run dev
-```
-
-Le banc de test est accessible sur `http://localhost:3000`.
-
-### Scripts utiles
-
-```bash
-# Build de distribution dans dist/ (copie manifest.json, extension/ et workbench/)
+# Build de distribution dans dist/
 npm run build
 
 # Vérification TypeScript de la configuration Vite
 npm run lint
 
-# Vérification syntaxique de tous les scripts ES6+ de l'extension et du banc de test
-find extension workbench -name '*.js' -print0 | xargs -0 -n1 node --check
-```
+# Vérification syntaxique de tous les scripts ES6+ de l'extension
+find extension -name '*.js' -print0 | xargs -0 -n1 node --check
 
----
 
-## Structure du projet
+Structure du projet
 
-```text
 ├── manifest.json                         # Manifeste MV3 (chargement depuis la racine)
 ├── extension/
 │   ├── manifest.json                     # Manifeste MV3 autonome (chargement depuis extension/)
@@ -128,15 +114,11 @@ find extension workbench -name '*.js' -print0 | xargs -0 -n1 node --check
 │       ├── sidepanel.css
 │       ├── sidepanel.js                  # Fil Miroir (80%) & Centre de commande (20%)
 │       └── speech-controller.js          # Contrôleur STT local (fallback hors contexte MV3)
-├── workbench/                            # Banc de test interactif (simulateur hôte + aperçu)
 ├── index.html
 ├── package.json
 ├── tsconfig.json
 └── vite.config.ts
-```
 
----
 
-## Ajouter ou mettre à jour un fournisseur STT
-
-Les sélecteurs CSS et URL cibles sont isolés dans `extension/shared/providers.config.js`. Pour ajuster un sélecteur ou ajouter un fournisseur web, il suffit d'éditer `STT_PROVIDERS` (et d'ajouter son domaine dans `host_permissions` des manifestes MV3) sans modifier le code cœur du Service Worker ni du Side Panel.
+Ajouter ou mettre à jour un fournisseur STT
+Les sélecteurs CSS et URL cibles sont isolés dans extension/shared/providers.config.js. Pour ajuster un sélecteur ou ajouter un fournisseur web, il suffit d'éditer STT_PROVIDERS (et d'ajouter son domaine dans host_permissions des manifestes MV3) sans modifier le code cœur du Service Worker ni du Side Panel.

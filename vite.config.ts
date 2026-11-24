@@ -8,7 +8,7 @@ function copyExtensionAssets() {
     closeBundle() {
       const rootDir = process.cwd();
       const distDir = path.resolve(rootDir, 'dist');
-      const itemsToCopy = ['manifest.json', 'extension', 'workbench'];
+      const itemsToCopy = ['manifest.json', 'extension'];
 
       for (const item of itemsToCopy) {
         const srcPath = path.resolve(rootDir, item);
