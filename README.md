@@ -2,7 +2,12 @@
 
 Extension Chromium **Manifest V3** (*Side Panel First*) **100 % Web Natif** (JavaScript ES6+ pur, HTML5, CSS3) dédiée à la traduction bidirectionnelle en temps réel sans serveur tiers ni clé API cloud.
 
-<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/be221ef8-1fb6-44d5-adaf-8aedd7402362" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/49c3c917-4600-4bac-bcd7-58c11e536646" alt="Aperçu 1 - Éditeur et Side Panel" width="85%" />
+</p>
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ec2e7986-e6ac-4a92-97df-f2424488ae01" alt="Aperçu 2 - Traduction des messages Discord dans le Side Panel" width="85%" />
+</p>
 
 
 ---
