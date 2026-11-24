@@ -62,10 +62,10 @@ Le code de l'extension ne nécessite **aucune étape de build** ni dépendance n
 
 1. Ouvrir `chrome://extensions` (ou `thorium://extensions`).
 2. Activer le **Mode développeur**.
-3. Cliquer sur **Charger l'extension non empaquetée** et sélectionner :
-   - soit le dossier racine du dépôt (`manifest.json`),
-   - soit directement le sous-dossier `extension/` (`extension/manifest.json`).
-4. Épingler l'icône **LingoSlide** dans la barre d'outils et cliquer dessus pour ouvrir le Side Panel.
+3. Télécharger LingoSlide.zip dans "release"
+4. Décompresser le fichier zip à l'emplacement de votre choix, pour faire apparaître le dossier "extension".
+5. Cliquer sur **Charger l'extension non empaquetée** et sélectionner le dossier "extension".
+6. Épingler l'icône **LingoSlide** dans la barre d'outils et cliquer dessus pour ouvrir le Side Panel.
 
 > **Prérequis navigateur :** Chrome / Chromium / Thorium récent supportant l'API native `Translator` (WICG) ainsi que les permissions MV3 `sidePanel` et `offscreen`. Pensez à autoriser le microphone dans les **Options** de l'extension lors de la première utilisation de la dictée vocale.
 
