@@ -17,11 +17,11 @@ Extension Chromium **Manifest V3** (*Side Panel First*) **100 % Web Natif** (Jav
 ### 1. Traduction bidirectionnelle 100 % locale (WICG Chrome Translator)
 LingoSlide s'appuie exclusivement sur l'API native du navigateur (`globalThis.Translator` / `globalThis.translation`) avec un cache LRU bidirectionnel :
 
-- **Fil Miroir (zone supérieure — 80 %)** :
+- **Fil Miroir** :
   - Observe le conteneur de messages de l'onglet actif dans l'**ordre naturel du DOM** (du haut vers le bas) et ne conserve que les **5 derniers messages** avec filtrage des nœuds imbriqués et dédoublonnage strict par empreinte.
   - Traduit automatiquement les messages entrants dans la direction inverse (**langue de sortie → langue d'origine**) en n'affichant que le texte traduit pour préserver la compacité.
   - Purge instantanément la file d'attente et les verrous du traducteur lors des navigations SPA, rechargements (`F5`) ou changements d'onglet.
-- **Centre de commande (zone inférieure — 20 %)** :
+- **Centre de commande** :
   - Saisie libre sans traduction intempestive pendant la frappe.
   - Traduction et injection déclenchées uniquement sur action explicite (`🌐 Injecter` ou `Ctrl+Entrée` / `Cmd+Entrée`) dans le sens **langue d'origine → langue de sortie**.
   - Bouton `📤 Sans traduire` pour injecter le texte brut.
