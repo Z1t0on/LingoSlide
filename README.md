@@ -2,6 +2,9 @@
 
 Extension Chromium **Manifest V3** (*Side Panel First*) **100 % Web Natif** (JavaScript ES6+ pur, HTML5, CSS3) dédiée à la traduction bidirectionnelle en temps réel sans serveur tiers ni clé API cloud.
 
+<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/be221ef8-1fb6-44d5-adaf-8aedd7402362" />
+
+
 ---
 
 ## Fonctionnalités principales
